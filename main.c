@@ -15,6 +15,14 @@ typedef uint64_t ms_t;
 
 const float pi = 3.14;
 
+#pragma pack(push,1)
+typedef struct FreqRec
+{
+    uint16_t freq;
+    float amp;
+} FreqRec;
+#pragma pack(pop)
+
 int main(int argc, char** argv)
 {
     if (argc != 2)
@@ -40,12 +48,18 @@ int main(int argc, char** argv)
     const freq_t sample_rate =  48000; // fixed due to opus codec limits
     const smpn_t samples_n = op_pcm_total(op_file, -1);
 
-    // buffer holding only 10 ms
-    const uint32_t pcm_buffer_len = sample_rate/10;
+    ms_t part_len_ms = 10;
+    const uint32_t freqs_per_part = 4096;
+    const uint32_t pcm_buffer_len = freqs_per_part * 2;
+    const uint32_t parts_n = samples_n / pcm_buffer_len;
 
     printf("sample_rate: '%d'\n", sample_rate);
     printf("samples_n: '%d'\n", samples_n);
     printf("pcm_buffer_len: '%d'\n", pcm_buffer_len);
+    printf("part_len_ms: '%d'\n", part_len_ms);
+    printf("freqs_per_part: '%d'\n", freqs_per_part);
+    printf("parts_n: '%d'\n", parts_n);
+    printf("memory usage to store freqs table: '%d'B\n", parts_n * sizeof(FreqRec));
 
     float *pcm_buffer = malloc(sizeof(float) * pcm_buffer_len);
 
@@ -62,31 +76,15 @@ int main(int argc, char** argv)
     }
 
     kiss_fftr_cfg kiss_fft_state = kiss_fftr_alloc(pcm_buffer_len, 0, 0, 0);
-
-    const uint32_t freqs_per_part = 5000;
-    const uint32_t parts_n = samples_n / pcm_buffer_len;
-
-    printf("freqs_per_part: '%d'\n", freqs_per_part);
-    printf("parts_n: '%d'\n", parts_n);
-    printf("memory usage to store freqs table: '%d'\n", parts_n*freqs_per_part*sizeof(uint32_t));
     
+    FreqRec *maxfreqs_in_parts = malloc(sizeof(FreqRec) * parts_n);
 
-    uint8_t **freqs_by_parts_table = malloc(sizeof(uint8_t*) * parts_n);
-
-    if (!freqs_by_parts_table)
+    if (!maxfreqs_in_parts)
     {
         exit(2);
     }
 
-    for (uint32_t part_index = 0; part_index< parts_n; part_index++)
-    {
-        freqs_by_parts_table[part_index] = malloc(sizeof(uint8_t) * freqs_per_part);
-
-        if (!freqs_by_parts_table[part_index])
-        {
-            exit(2);
-        }
-    } 
+    
 
     for (uint32_t part_index = 0; part_index < parts_n; part_index++)
     {
@@ -99,13 +97,25 @@ int main(int argc, char** argv)
 
         kiss_fftr(kiss_fft_state, pcm_buffer, fft_out);
         
-        for (int freq_ind=0; freq_ind < samples_read; freq_ind++)
+        FreqRec max_freq_rec = {0, 0.0};
+        //printf("part: '%d'\n", part_index);
+        for (uint32_t freq_ind=0; freq_ind < samples_read / 2; freq_ind++)
         {
-            float magnitude = sqrt(fft_out[freq_ind].r*fft_out[freq_ind].r + 
-                                   fft_out[freq_ind].i*fft_out[freq_ind].i);
+            float magnitude = sqrtf(fft_out[freq_ind].r*fft_out[freq_ind].r + 
+                                    fft_out[freq_ind].i*fft_out[freq_ind].i)
+                              / samples_read;
 
-            freqs_by_parts_table[part_index][freq_ind] = UINT8_MAX / magnitude;
+            //printf("freq: '%d' amp: '%1.3f'\n", freq_ind, magnitude);
+
+            if (magnitude > max_freq_rec.amp)
+            {
+                max_freq_rec.amp = magnitude;
+                max_freq_rec.freq = freq_ind;
+            }
         }
+
+        maxfreqs_in_parts[part_index] = max_freq_rec;
+        printf("freq: '%d' amp: '%1.3f'\n", max_freq_rec.freq, max_freq_rec.amp);
     }
 
     free(kiss_fft_state);
