@@ -1,6 +1,10 @@
 #pragma once
+
 #include <inttypes.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <math.h>
 
 typedef uint64_t smpn_t;
 typedef int16_t smp_16_t;

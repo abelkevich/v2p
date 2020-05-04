@@ -7,7 +7,7 @@ CFALGS = -O0 -g
 
 all: pitch_analyzer
 
-clear:
+clean:
 	rm -rf *.o
 	rm -rf pitch_analyzer
 
@@ -18,10 +18,13 @@ kiss_fft.o: $(KISSFFT_DIR)/kiss_fft.c
 	$(CC) $(CFLAGS) -I$(KISSFFT_DIR) -c $< -o $@
 
 main.o: main.c
-	$(CC) $(CFLAGS) -I$(KISSFFT_DIR) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
+
+freqs_table_generator.o: freqs_table_generator.c freqs_table_generator.h
+	$(CC) $(CFALGS) -I$(KISSFFT_DIR) -c $< -o $@
 
 ogg_opus_reader.o: ogg_opus_reader.c ogg_opus_reader.h
 	$(CC) $(CFALGS) -I$(OPUS_DIR) -c $< -o $@
 
-pitch_analyzer: main.o kiss_fftr.o kiss_fft.o ogg_opus_reader.o
+pitch_analyzer: main.o kiss_fftr.o kiss_fft.o ogg_opus_reader.o freqs_table_generator.o
 	$(CC) -o $@ $^ -lopusfile -lm
