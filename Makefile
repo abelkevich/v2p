@@ -25,8 +25,11 @@ main.o: main.c cmn_defs.h freqs_table_generator.h ogg_opus_reader.h
 freqs_table_generator.o: freqs_table_generator.c freqs_table_generator.h cmn_defs.h
 	$(CC) $(CFALGS) -I$(KISSFFT_DIR) -c $< -o $@
 
+midi_table_generator.o: midi_table_generator.c midi_table_generator.h freqs_table_generator.h cmn_defs.h
+	$(CC) $(CFALGS) -c $< -o $@
+
 ogg_opus_reader.o: ogg_opus_reader.c ogg_opus_reader.h cmn_defs.h
 	$(CC) $(CFALGS) -I$(OPUS_DIR) -c $< -o $@
 
-$(PROJ_NAME): main.o kiss_fftr.o kiss_fft.o ogg_opus_reader.o freqs_table_generator.o
+$(PROJ_NAME): main.o kiss_fftr.o kiss_fft.o ogg_opus_reader.o freqs_table_generator.o midi_table_generator.o
 	$(CC) -o $@ $^ -lopusfile -lm
