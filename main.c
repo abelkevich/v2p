@@ -57,19 +57,22 @@ int main(int argc, char** argv)
     }
 
     // read ogg
-    int offset = 0;
-    while(1)
     {
-        int samples_read = op_read_float(op_file, pcm_buffer + offset, 512, NULL);
-        
-        if (samples_read <= 0)
+        int offset = 0;
+        while(1)
         {
-            break;
-        }
+            int samples_read = op_read_float(op_file, pcm_buffer + offset, 512, NULL);
+            
+            if (samples_read <= 0)
+            {
+                break;
+            }
 
-        offset += samples_read;
+            offset += samples_read;
+        }
     }
 
+    op_free(op_file);
 
     const ms_t part_len_ms = 10;
     const smpn_t samples_per_part = sample_rate/1000 * part_len_ms;
@@ -86,9 +89,9 @@ int main(int argc, char** argv)
     printf("fft_buffer_len: '%d'\n", fft_buffer_len);
     printf("memory usage to store freqs table: '%d'B\n", parts_n * sizeof(FreqRec));
 
-    kiss_fft_cpx *fft_out = malloc(sizeof(kiss_fft_cpx) * fft_buffer_len);
+    kiss_fft_cpx *fft_buffer = malloc(sizeof(kiss_fft_cpx) * fft_buffer_len);
 
-    if (!fft_out)
+    if (!fft_buffer)
     {
         exit(2);
     }
@@ -113,13 +116,13 @@ int main(int argc, char** argv)
 
         float *pcm_buffer_offset = pcm_buffer + (part_index * samples_per_part);
 
-        kiss_fftr(kiss_fft_state, pcm_buffer_offset, fft_out);
+        kiss_fftr(kiss_fft_state, pcm_buffer_offset, fft_buffer);
         
         FreqRec max_freq_rec = {0, 0.0};
         for (uint32_t freq_index=0; freq_index < fft_buffer_len / 2; freq_index++)
         {
-            float r = fft_out[freq_index].r;
-            float i = fft_out[freq_index].i;
+            float r = fft_buffer[freq_index].r;
+            float i = fft_buffer[freq_index].i;
 
             float amp = sqrtf(r*r + i*i);
 
@@ -131,11 +134,13 @@ int main(int argc, char** argv)
         }
 
         maxfreqs_in_parts[part_index] = max_freq_rec;
-        printf("freq: '%d' amp: '%1.3f'\n", max_freq_rec.freq, max_freq_rec.amp);
+        //printf("freq: '%d' amp: '%1.3f'\n", max_freq_rec.freq, max_freq_rec.amp);
     }
 
+    free(pcm_buffer);
+    free(fft_buffer);
+    free(maxfreqs_in_parts);
     free(kiss_fft_state);
-    op_free(op_file);
 
     return 0;
 }
