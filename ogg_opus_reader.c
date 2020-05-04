@@ -24,6 +24,12 @@ float* read_ogg_opus(const char* filename, freq_t *_sample_rate, smpn_t *_sample
 
     printf("sample_rate: '%d'\n", sample_rate);
     printf("samples_n: '%d'\n", samples_n);
+
+    if (samples_n > sample_rate * 90)
+    {
+        fprintf(stderr, "Ogg contents is more than 90 seconds\n");
+        return NULL;
+    }
     
     float *pcm_buffer = malloc(sizeof(float) * samples_n);
 
