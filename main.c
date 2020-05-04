@@ -5,13 +5,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <opus/opus.h>
-#include <opus/opusfile.h>
+#include "cmn_defs.h"
+#include "ogg_opus_reader.h"
 
-typedef uint64_t smpn_t;
-typedef int16_t smp_16_t;
-typedef uint32_t freq_t;
-typedef uint64_t ms_t;
 
 #pragma pack(push,1)
 typedef struct FreqRec
@@ -29,50 +25,16 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    OggOpusFile* op_file = op_open_file(argv[1], NULL);
-
-    if(!op_file) 
-    {
-        fprintf(stderr, "Input does not appear to be an Ogg bitstream.\n");
-        exit(1);
-    }
-
-    if (op_channel_count(op_file, -1) != 1)
-    {
-        fprintf(stderr, "There is multichannel data\n");
-        exit(1);
-    }
-
-    const freq_t sample_rate =  48000; // fixed due to opus codec limits
-    const smpn_t samples_n = op_pcm_total(op_file, -1);
-
-    printf("sample_rate: '%d'\n", sample_rate);
-    printf("samples_n: '%d'\n", samples_n);
+    freq_t sample_rate = 0;
+    smpn_t samples_n = 0;
+    float* pcm_buffer = read_ogg_opus(argv[1], &sample_rate, &samples_n);
     
-    float *pcm_buffer = malloc(sizeof(float) * samples_n);
-
     if (!pcm_buffer)
     {
-        exit(2);
+        fprintf(stderr, "Cannot read Ogg opus!");
+        exit(1);
     }
 
-    // read ogg
-    {
-        int offset = 0;
-        while(1)
-        {
-            int samples_read = op_read_float(op_file, pcm_buffer + offset, 512, NULL);
-            
-            if (samples_read <= 0)
-            {
-                break;
-            }
-
-            offset += samples_read;
-        }
-    }
-
-    op_free(op_file);
 
     const ms_t part_len_ms = 10;
     const smpn_t samples_per_part = sample_rate/1000 * part_len_ms;

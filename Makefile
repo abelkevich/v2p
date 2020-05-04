@@ -3,6 +3,8 @@ OPUS_DIR = /usr/include/opus
 
 CFALGS = -O0 -g
 
+.phony: all clear
+
 all: pitch_analyzer
 
 clear:
@@ -16,7 +18,10 @@ kiss_fft.o: $(KISSFFT_DIR)/kiss_fft.c
 	$(CC) $(CFLAGS) -I$(KISSFFT_DIR) -c $< -o $@
 
 main.o: main.c
-	$(CC) $(CFLAGS) -I$(KISSFFT_DIR) -I$(OPUS_DIR) -c $< -o $@
+	$(CC) $(CFLAGS) -I$(KISSFFT_DIR) -c $< -o $@
 
-pitch_analyzer: main.o kiss_fftr.o kiss_fft.o
+ogg_opus_reader.o: ogg_opus_reader.c ogg_opus_reader.h
+	$(CC) $(CFALGS) -I$(OPUS_DIR) -c $< -o $@
+
+pitch_analyzer: main.o kiss_fftr.o kiss_fft.o ogg_opus_reader.o
 	$(CC) -o $@ $^ -lopusfile -lm
