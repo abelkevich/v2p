@@ -2,6 +2,16 @@
 #include "ogg_opus_reader.h"
 #include "freqs_table_generator.h"
 
+#pragma pack(push,1)
+struct MidiRec
+{
+    uint8_t code;
+    uint8_t velocity; 
+};
+#pragma pack(pop)
+
+typedef struct MidiRec MidiRec;
+
 void normalize_amps(FreqRec* freqs_table, const uint32_t freqs_table_recs_n)
 {
     float max_amp = 0;
@@ -51,37 +61,52 @@ float* build_semitones_tune_table(const freq_t base_freq, const uint32_t semiton
     return semitones_freqs;
 }
 
-void match_freqs_table_to_semitones_table(FreqRec* freqs_table, const uint32_t freqs_table_recs_n,
-                                          const float* semitones_table, const uint32_t semitones_n)
+MidiRec* from_freqs_table_to_midi_table(const FreqRec* freqs_table, const uint32_t freqs_table_recs_n,
+                                        const float* semitones_table, const uint32_t semitones_n,
+                                        uint32_t *_midi_table_recs_n)
 {
+    MidiRec* midi_table = malloc(sizeof(MidiRec) * freqs_table_recs_n);
+
+    if (!midi_table)
+    {
+        return NULL;
+    }
+
     for (uint32_t rec_index = 0; rec_index<freqs_table_recs_n; rec_index++)
     {
-        FreqRec* rec = freqs_table + rec_index;
+        const FreqRec* freq_rec = freqs_table + rec_index;
+        MidiRec* midi_rec = midi_table + rec_index;
 
         // filter hum
-        if (rec->freq < 40)
+        if (freq_rec->freq < 40)
         {
-            rec->freq = 0;
+            midi_rec->code = 0;
+            midi_rec->velocity = 0;
+
             continue;
         }
 
-        float nearest_semitone_freq = 0;
+        uint32_t nearest_semitone_index = 0;
         float smallest_freq_diff = FLT_MAX;
 
         for (uint32_t semitone_index = 0; semitone_index < semitones_n; semitone_index++)
         {
             float semitone_freq = semitones_table[semitone_index];
-            float freq_diff = fabs(rec->freq - semitone_freq);
+            float freq_diff = fabs(freq_rec->freq - semitone_freq);
 
             if (freq_diff < smallest_freq_diff)
             {
                 smallest_freq_diff = freq_diff;
-                nearest_semitone_freq = semitone_freq;
+                nearest_semitone_index = semitone_index;
             }
         }
 
-        rec->freq = nearest_semitone_freq;
+        midi_rec->code = nearest_semitone_index + 21;
+        midi_rec->velocity = freq_rec->amp * 127;
     }
+
+    *_midi_table_recs_n = freqs_table_recs_n; 
+    return midi_table;
 }
 
 int main(int argc, char** argv)
@@ -135,11 +160,25 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    match_freqs_table_to_semitones_table(freqs_table, freqs_table_recs_n, semitones_table, semitones_n);
-
-    print_freqs_table(freqs_table, freqs_table_recs_n);
+    uint32_t midi_table_recs_n = 0;
+    MidiRec* midi_table = from_freqs_table_to_midi_table(freqs_table, freqs_table_recs_n, 
+                                                         semitones_table, semitones_n,
+                                                         &midi_table_recs_n);
 
     free(freqs_table);
+
+    if (!midi_table)
+    {
+        fprintf(stderr, "Cannot build midi table!\n");
+        exit(1);
+    }
+
+    printf("\nMidi table:\n");
+    for (uint32_t i=0; i<midi_table_recs_n; i++)
+    {
+        MidiRec r = midi_table[i];
+        printf("code: '%d' velocity: '%d'\n", r.code, r.velocity);
+    }
 
     return 0;
 }
