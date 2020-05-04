@@ -32,6 +32,58 @@ void print_freqs_table(const FreqRec* freqs_table, const uint32_t freqs_table_re
     }
 }
 
+float* build_semitones_tune_table(const freq_t base_freq, const uint32_t semitones_n)
+{
+    const uint8_t semitone_mid_index = semitones_n / 2;
+    float* semitones_freqs = (float*) malloc(sizeof(float) * semitones_n);
+
+    if (!semitones_freqs)
+    {
+        return NULL;
+    }
+
+    for (uint8_t semitone_index = 0; semitone_index < semitones_n; semitone_index++)
+    {
+        float freq = base_freq * pow(2, (semitone_index - semitone_mid_index)/12.0);
+        semitones_freqs[semitone_index] = freq;
+    }
+
+    return semitones_freqs;
+}
+
+void match_freqs_table_to_semitones_table(FreqRec* freqs_table, const uint32_t freqs_table_recs_n,
+                                          const float* semitones_table, const uint32_t semitones_n)
+{
+    for (uint32_t rec_index = 0; rec_index<freqs_table_recs_n; rec_index++)
+    {
+        FreqRec* rec = freqs_table + rec_index;
+
+        // filter hum
+        if (rec->freq < 40)
+        {
+            rec->freq = 0;
+            continue;
+        }
+
+        float nearest_semitone_freq = 0;
+        float smallest_freq_diff = FLT_MAX;
+
+        for (uint32_t semitone_index = 0; semitone_index < semitones_n; semitone_index++)
+        {
+            float semitone_freq = semitones_table[semitone_index];
+            float freq_diff = fabs(rec->freq - semitone_freq);
+
+            if (freq_diff < smallest_freq_diff)
+            {
+                smallest_freq_diff = freq_diff;
+                nearest_semitone_freq = semitone_freq;
+            }
+        }
+
+        rec->freq = nearest_semitone_freq;
+    }
+}
+
 int main(int argc, char** argv)
 {
     if (argc != 2)
@@ -50,7 +102,7 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    // need to add low-pass (<5kHz) and high-pass (>40Hz) filtering
+    // need to add low-pass (<4kHz) and high-pass (>40Hz) filtering
 
     const ms_t division_time_ms = 10;
     const freq_t freqs_window = 4096;
@@ -73,6 +125,17 @@ int main(int argc, char** argv)
     printf("freqs_table_recs_n: '%d'\n", freqs_table_recs_n);
 
     normalize_amps(freqs_table, freqs_table_recs_n);
+    
+    uint32_t semitones_n = 4 * 2 * 12; // 8 octaves
+    float * semitones_table = build_semitones_tune_table(440, semitones_n);
+
+    if (!semitones_table)
+    {
+        fprintf(stderr, "Cannot build semitones table!\n");
+        exit(1);
+    }
+
+    match_freqs_table_to_semitones_table(freqs_table, freqs_table_recs_n, semitones_table, semitones_n);
 
     print_freqs_table(freqs_table, freqs_table_recs_n);
 

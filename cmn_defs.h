@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <math.h>
+#include <float.h>
 
 typedef uint64_t smpn_t;
 typedef int16_t smp_16_t;
