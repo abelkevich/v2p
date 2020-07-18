@@ -1,5 +1,5 @@
-#include "cmn_defs.h"
-#include "midi_table_generator.h"
+#include "midi_writer.h"
+
 
 #pragma pack(push,1)
 struct HeaderChunk
@@ -13,14 +13,13 @@ struct HeaderChunk
 #pragma pack(pop)
 
 #pragma pack(push,1)
-struct TrackChunk
+struct TrackEvent
 {
     char mtrk[4];
     uint32_t data_len;
     void *data;
 };
 #pragma pack(pop)
-
 
 #pragma pack(push,1)
 struct TrackChunk
@@ -36,3 +35,8 @@ typedef struct TrackChunk TrackChunk;
 
 static const HeaderChunk c_header_chunk = {{'M', 'T', 'h', 'd'}, 6, 0, 1, -1};
 
+char* from_midi_table_to_midi_file(const MidiRec* midi_table, const uint32_t midi_table_recs_n, uint32_t *midi_file_size)
+{
+    *midi_file_size = 4;
+    return "abcd";
+}

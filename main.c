@@ -2,6 +2,7 @@
 #include "ogg_opus_reader.h"
 #include "freqs_table_generator.h"
 #include "midi_table_generator.h"
+#include "midi_writer.h"
 
 void normalize_amps(FreqRec* freqs_table, const uint32_t freqs_table_recs_n)
 {
@@ -122,6 +123,33 @@ int main(int argc, char** argv)
         MidiRec r = midi_table[i];
         printf("code: '%d' velocity: '%d'\n", r.code, r.velocity);
     }
+
+    uint32_t midi_file_size = 0;
+    char* midi_file_data = from_midi_table_to_midi_file(midi_table, midi_table_recs_n, &midi_file_size);
+
+    free(midi_table);
+
+    if (!midi_file_data)
+    {
+        fprintf(stderr, "Cannot build midi file!\n");
+        exit(1);
+    }
+
+    FILE* midi_file = fopen("midi.mid", "w");
+
+    if (!midi_file)
+    {
+        fprintf(stderr, "Cannot open midi file for writing!\n");
+        exit(1);
+    }
+
+    if (fwrite(midi_file_data, 1, midi_file_size, midi_file) != midi_file_size)
+    {
+        fprintf(stderr, "Cannot write midi data!\n");
+        exit(1);
+    }
+
+    fclose(midi_file);
 
     return 0;
 }
