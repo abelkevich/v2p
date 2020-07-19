@@ -19,20 +19,20 @@ kiss_fftr.o: $(KISSFFT_DIR)/tools/kiss_fftr.c
 kiss_fft.o: $(KISSFFT_DIR)/kiss_fft.c
 	$(CC) $(CFLAGS) -I$(KISSFFT_DIR) -c $< -o $@
 
-main.o: main.c cmn_defs.h freqs_table_generator.h ogg_opus_reader.h
+main.o: main.c cmn_defs.h spectrum_extractor.h ogg_opus_reader.h notes_matcher.h midi_writer.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
-freqs_table_generator.o: freqs_table_generator.c freqs_table_generator.h cmn_defs.h
+spectrum_extractor.o: spectrum_extractor.c spectrum_extractor.h cmn_defs.h
 	$(CC) $(CFALGS) -I$(KISSFFT_DIR) -c $< -o $@
 
-midi_table_generator.o: midi_table_generator.c midi_table_generator.h freqs_table_generator.h cmn_defs.h
+notes_matcher.o: notes_matcher.c notes_matcher.h spectrum_extractor.h cmn_defs.h
 	$(CC) $(CFALGS) -c $< -o $@
 
-midi_writer.o: midi_writer.c midi_table_generator.h cmn_defs.h
+midi_writer.o: midi_writer.c notes_matcher.h cmn_defs.h
 	$(CC) $(CFALGS) -c $< -o $@
 
 ogg_opus_reader.o: ogg_opus_reader.c ogg_opus_reader.h cmn_defs.h
 	$(CC) $(CFALGS) -I$(OPUS_DIR) -c $< -o $@
 
-$(PROJ_NAME): main.o kiss_fftr.o kiss_fft.o ogg_opus_reader.o freqs_table_generator.o midi_table_generator.o midi_writer.o
+$(PROJ_NAME): main.o kiss_fftr.o kiss_fft.o ogg_opus_reader.o spectrum_extractor.o notes_matcher.o midi_writer.o
 	$(CC) -o $@ $^ -lopusfile -lm

@@ -1,7 +1,7 @@
 #include "cmn_defs.h"
 #include "ogg_opus_reader.h"
-#include "freqs_table_generator.h"
-#include "midi_table_generator.h"
+#include "spectrum_extractor.h"
+#include "notes_matcher.h"
 #include "midi_writer.h"
 
 void normalize_amps(FreqRec* freqs_table, const uint32_t freqs_table_recs_n)
@@ -55,9 +55,9 @@ float* build_semitones_tune_table(const freq_t base_freq, const uint32_t semiton
 
 int main(int argc, char** argv)
 {
-    if (argc != 2)
+    if (argc != 3)
     {
-        fprintf(stderr, "Usage: %s filename.ogg\n", argv[0]);
+        fprintf(stderr, "Usage: %s input.ogg out.mid\n", argv[0]);
         exit(1);
     }
 
@@ -79,21 +79,21 @@ int main(int argc, char** argv)
     printf("division_time_ms: '%d'\n", division_time_ms);
     printf("freqs_window: '%d'\n", freqs_window);
 
-    uint32_t freqs_table_recs_n = 0;
-    FreqRec *freqs_table = get_freqs_table(freqs_window, division_time_ms, &freqs_table_recs_n, 
-                                           pcm_buffer, sample_rate, samples_n);
+    uint32_t freqs_n = 0;
+    FreqRec *freqs = break_into_parts_and_find_lead_freqs(freqs_window, division_time_ms, &freqs_n, 
+                                     pcm_buffer, sample_rate, samples_n);
 
     free(pcm_buffer);
 
-    if (!freqs_table)
+    if (!freqs)
     {
         fprintf(stderr, "Cannot get freqs_table!");
         exit(1);
     }
 
-    printf("freqs_table_recs_n: '%d'\n", freqs_table_recs_n);
+    printf("freqs_table_recs_n: '%d'\n", freqs_n);
 
-    normalize_amps(freqs_table, freqs_table_recs_n);
+    normalize_amps(freqs, freqs_n);
     
     uint32_t semitones_n = 4 * 2 * 12; // 8 octaves
     float * semitones_table = build_semitones_tune_table(440, semitones_n);
@@ -104,30 +104,32 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    uint32_t midi_table_recs_n = 0;
-    MidiRec* midi_table = from_freqs_table_to_midi_table(freqs_table, freqs_table_recs_n, 
-                                                         semitones_table, semitones_n,
-                                                         &midi_table_recs_n);
+    uint32_t notes_n = 0;
+    NoteRec* notes = match_freqs_and_notes(freqs, freqs_n, 
+                                           semitones_table, semitones_n,
+                                           &notes_n);
 
-    free(freqs_table);
+    free(freqs);
 
-    if (!midi_table)
+    if (!notes)
     {
         fprintf(stderr, "Cannot build midi table!\n");
         exit(1);
     }
 
+    /*
     printf("\nMidi table:\n");
     for (uint32_t i=0; i<midi_table_recs_n; i++)
     {
         MidiRec r = midi_table[i];
         printf("code: '%d' velocity: '%d'\n", r.code, r.velocity);
     }
+    */
 
     uint32_t midi_file_size = 0;
-    char* midi_file_data = from_midi_table_to_midi_file(midi_table, midi_table_recs_n, &midi_file_size);
+    char* midi_file_data = generate_midi_file(notes, notes_n, &midi_file_size);
 
-    free(midi_table);
+    free(notes);
 
     if (!midi_file_data)
     {
@@ -135,7 +137,7 @@ int main(int argc, char** argv)
         exit(1);
     }
 
-    FILE* midi_file = fopen("midi.mid", "w");
+    FILE* midi_file = fopen(argv[2], "wb");
 
     if (!midi_file)
     {
@@ -150,6 +152,8 @@ int main(int argc, char** argv)
     }
 
     fclose(midi_file);
+
+    free(midi_file_data);
 
     return 0;
 }
